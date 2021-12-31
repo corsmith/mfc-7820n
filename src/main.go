@@ -11,9 +11,9 @@ func main() {
 
 	brotherIP := flag.String("a", "192.168.0.157", "IP address of the Brother scanner")
 	resolution := flag.Int("r", 300, "Resolution of the scan")
-	color := flag.String("c", "CGRAY", "Color mode of the scan (CGRAY, GRAY64)")
-	adf := flag.Bool("m", false, "Enable scan of all pages from feeder")
-	name := flag.String("n", "scan.jpg", "Name of the output file")
+	color := flag.String("c", "CGRAY", "Color mode of the scan (CGRAY, TEXT)")
+	name := flag.String("n", "scan.tiff", "Name of the output file")
+	rawinput := flag.String("i", "", "raw input file to parse instead of socket")
 
 	flag.Parse()
 
@@ -21,14 +21,14 @@ func main() {
 		HandleError(fmt.Errorf("invalid IP address: %s", *brotherIP))
 	}
 
-	rawImages, width, heigth := Scan(*brotherIP, brotherPort, *resolution, *color, *adf)
+	rawImages, width, height := Scan(*brotherIP, brotherPort, *resolution, *color, *rawinput)
 
 	for i, rawImage := range rawImages {
 		if i == len(rawImages)-1 {
-			SaveImage(rawImage, width, heigth, fmt.Sprintf("%s(%d)", *name, i), *color)
+			SaveImage(rawImage, width, height, fmt.Sprintf("%s-%d.tiff", *name, i), *color)
 
 		} else {
-			go SaveImage(rawImage, width, heigth, fmt.Sprintf("%s(%d)", *name, i), *color)
+			go SaveImage(rawImage, width, height, fmt.Sprintf("%s-%d.tiff", *name, i), *color)
 		}
 	}
 }

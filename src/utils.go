@@ -43,5 +43,5 @@ func mmToPixels(mm int, dpi int) int {
 }
 
 func colorToGray(value byte) color.Gray {
-	return color.Gray{Y: value}
+	return color.Gray{Y: value ^ 255}
 }

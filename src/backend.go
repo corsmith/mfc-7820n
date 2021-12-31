@@ -4,32 +4,42 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
-	"image/png"
+	"golang.org/x/image/tiff"
 	"log"
 	"net"
 	"os"
 	"time"
 )
 
-func Scan(brotherIP string, brotherPort int, resolution int, color string, adf bool) ([][]byte, int, int) {
-	log.Println("Valid IP address, opening socket...")
+func Scan(brotherIP string, brotherPort int, resolution int, color string, rawinput string) ([][]byte, int, int) {
+	if rawinput == "" {
+		log.Println("Valid IP address, opening socket...")
 
-	socket, err := net.Dial("tcp", fmt.Sprintf("%s:%d", brotherIP, brotherPort))
+		socket, err := net.Dial("tcp", fmt.Sprintf("%s:%d", brotherIP, brotherPort))
 
-	HandleError(err)
+		HandleError(err)
 
-	defer socket.Close()
+		defer socket.Close()
 
-	width, heigth := sendRequest(socket, resolution, color, adf)
+		width, height := sendRequest(socket, resolution, color)
+		bytes, err := getScanBytes(socket)
 
-	bytes, err := getScanBytes(socket)
+		HandleError(err)
+		err = os.WriteFile(".rawbytes", bytes, 0644)
+		HandleError(err)
+		return removeHeaders(bytes), width, height
+	} else {
+		log.Println("Bypassing socket...")
+		width := 1648
+		height := 2287
 
-	HandleError(err)
-
-	return removeHeaders(bytes), width, heigth
+		bytes, err := os.ReadFile(rawinput)
+		HandleError(err)
+		return removeHeaders(bytes), width, height
+	}
 }
 
-func sendRequest(socket net.Conn, resolution int, _mode string, adf bool) (int, int) {
+func sendRequest(socket net.Conn, resolution int, _mode string) (int, int) {
 
 	mode, compression := getCompressionMode(_mode)
 
@@ -48,15 +58,6 @@ func sendRequest(socket net.Conn, resolution int, _mode string, adf bool) (int, 
 
 	offer := readPacket(socket)
 
-	if !adf {
-		log.Println("Disabling automatic document feeder (ADF)")
-
-		request = []byte(formats.disableADF)
-		sendPacket(socket, request)
-
-		readPacket(socket)
-	}
-
 	log.Println("Sending scan request...")
 
 	width, height := 0, 0
@@ -64,14 +65,9 @@ func sendRequest(socket net.Conn, resolution int, _mode string, adf bool) (int, 
 	dpiX, dpiY := 0, 0
 	adfStatus := 0
 
-	fmt.Sscanf(offer[3:], "%d,%d,%d,%d,%d,%d,%d", &dpiX, &dpiY, &adfStatus, &planeWidth, &width, &planeHeight, &height)
+	fmt.Sscanf(offer[2:], "%d,%d,%d,%d,%d,%d,%d", &dpiX, &dpiY, &adfStatus, &planeWidth, &width, &planeHeight, &height)
 
-	if planeHeight == 0 {
-		planeHeight = scanner.A4height
-	}
-
-	width = mmToPixels(planeWidth, dpiX)
-	height = mmToPixels(planeHeight, dpiY)
+	log.Println("Sending scan request dpiX, dpiY", dpiX, dpiY)
 
 	request = []byte(fmt.Sprintf(formats.scanRequest, dpiX, dpiY, mode, compression, width, height))
 
@@ -101,6 +97,10 @@ readPackets:
 
 		case nil:
 			scanBytes = append(scanBytes, packet[:bytes]...)
+			if bytes == 1 && packet[0] == scanner.endScan {
+				log.Println("Scan received...")
+				break readPackets
+			}
 
 		default:
 			HandleError(err)
@@ -111,6 +111,8 @@ readPackets:
 		return scanBytes, fmt.Errorf("no data received")
 	}
 
+	log.Println("Captured %d bytes...", len(scanBytes))
+
 	return scanBytes, nil
 }
 
@@ -118,28 +120,43 @@ func SaveImage(data []byte, width int, height int, name string, color string) {
 
 	log.Println("Saving image...")
 
+	/* fix height based on actual scan lines received */
+	actualheight := (len(data) * 8) / width
 	_, compression := getCompressionMode(color)
 
 	if compression != scanner.compression.jpeg {
 
 		img := image.NewGray(image.Rectangle{
 			image.Point{0, 0},
-			image.Point{width, height},
+			image.Point{width, actualheight},
 		})
 
-		for y := 0; y < height; y++ {
-			for x := 0; x < width; x++ {
-				img.SetGray(x, y, colorToGray(data[(y*width+x)%len(data)]))
+		for i := 0; i < len(data); i++ {
+			transx := (i * 8) % width
+			transy := ((i * 8) / width)
+			for o := 0; o < 8; o++ {
+				sample := data[i] & (1 << o)
+				if sample > 0 {
+					sample = 255
+				}
+				img.SetGray(transx + (7 - o), transy, colorToGray(sample))
 			}
 		}
 
 		file, err := os.Create(name)
 		HandleError(err)
 
-		png.Encode(file, img)
+		var options tiff.Options = tiff.Options{
+			Compression: tiff.Deflate,
+			Predictor: true,
+		}
 
+		err = tiff.Encode(file, img, &options)
+
+		rawName := fmt.Sprintf("%s.raw", name)
+		err = os.WriteFile(rawName, data, 0644)
+		HandleError(err)
 	} else {
-
 		err := os.WriteFile(name, data, 0644)
 		HandleError(err)
 	}
@@ -156,10 +173,15 @@ func removeHeaders(data []byte) [][]byte {
 
 headersLoop:
 	for {
-		if data[i] == scanner.endPage {
+		if data[i] == scanner.endScan {
+			log.Println("End Scan...")
+			pages = append(pages, page)
+			break headersLoop
+		} else if data[i] == scanner.endPage {
+			log.Println("End Page...")
 			pages = append(pages, page)
 
-			if len(data) > i+10 && data[i+10] == scanner.endScan {
+			if len(data) > i+1 && data[i+1] == scanner.endScan {
 				break headersLoop
 			}
 
@@ -169,14 +191,19 @@ headersLoop:
 
 			i += scanner.headerLen - 2
 			continue headersLoop
+		} else if data[i] == scanner.startGray {
+			payloadLen := binary.LittleEndian.Uint16(data[i+1 : i+3])
+			// log.Println("... process record", fmt.Sprintf("%#04x", payloadLen))
+			chunkSize := int(payloadLen)
+
+			page = append(page, data[i+scanner.headerLen:i+scanner.headerLen+chunkSize]...)
+
+			i += chunkSize + scanner.headerLen
+		} else {
+			// This is an error
+			log.Fatalln("Invalid header type.  Giving up...")
+			break headersLoop
 		}
-
-		payloadLen := binary.LittleEndian.Uint16(data[i+scanner.headerLen-2 : i+scanner.headerLen])
-		chunkSize := int(payloadLen) + scanner.headerLen
-
-		page = append(page, data[i+scanner.headerLen:i+chunkSize]...)
-
-		i += chunkSize
 	}
 
 	return pages
