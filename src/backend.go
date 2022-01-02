@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func Scan(brotherIP string, brotherPort int, resolution int, color string, rawinput string) ([][]byte, int, int) {
+func Scan(brotherIP string, brotherPort int, resolution int, color string, rawinput string, debug bool) ([][]byte, int, int) {
 	if rawinput == "" {
 		log.Println("Valid IP address, opening socket...")
 
@@ -25,8 +25,10 @@ func Scan(brotherIP string, brotherPort int, resolution int, color string, rawin
 		bytes, err := getScanBytes(socket)
 
 		HandleError(err)
-		err = os.WriteFile(".rawbytes", bytes, 0644)
-		HandleError(err)
+		if debug {
+			err = os.WriteFile(".rawbytes", bytes, 0644)
+			HandleError(err)
+		}
 		return removeHeaders(bytes), width, height
 	} else {
 		log.Println("Bypassing socket...")
@@ -116,7 +118,7 @@ readPackets:
 	return scanBytes, nil
 }
 
-func SaveImage(data []byte, width int, height int, name string, color string) {
+func SaveImage(data []byte, width int, height int, name string, color string, debug bool) {
 
 	log.Println("Saving image...")
 
@@ -153,9 +155,11 @@ func SaveImage(data []byte, width int, height int, name string, color string) {
 
 		err = tiff.Encode(file, img, &options)
 
-		rawName := fmt.Sprintf("%s.raw", name)
-		err = os.WriteFile(rawName, data, 0644)
-		HandleError(err)
+		if debug {
+			rawName := fmt.Sprintf("%s.raw", name)
+			err = os.WriteFile(rawName, data, 0644)
+			HandleError(err)
+		}
 	} else {
 		err := os.WriteFile(name, data, 0644)
 		HandleError(err)
