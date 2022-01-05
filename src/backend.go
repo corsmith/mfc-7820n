@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
-	"golang.org/x/image/tiff"
+	"github.com/corsmith/image/tiff"
 	"log"
 	"net"
 	"os"
@@ -118,7 +118,7 @@ readPackets:
 	return scanBytes, nil
 }
 
-func SaveImage(data []byte, width int, height int, name string, color string, debug bool) {
+func SaveImage(data []byte, width int, height int, name string, color string, debug bool, resolution int) {
 
 	log.Println("Saving image...")
 
@@ -151,6 +151,7 @@ func SaveImage(data []byte, width int, height int, name string, color string, de
 		var options tiff.Options = tiff.Options{
 			Compression: tiff.Deflate,
 			Predictor: true,
+			Resolution: uint32(resolution),
 		}
 
 		err = tiff.Encode(file, img, &options)

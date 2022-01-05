@@ -26,9 +26,9 @@ func main() {
 
 	for i, rawImage := range rawImages {
 		if i == len(rawImages)-1 {
-			SaveImage(rawImage, width, height, fmt.Sprintf("%s-%d.tiff", *name, i), *color, *debug)
+			SaveImage(rawImage, width, height, fmt.Sprintf("%s-%d.tiff", *name, i), *color, *debug, *resolution)
 		} else {
-			go SaveImage(rawImage, width, height, fmt.Sprintf("%s-%d.tiff", *name, i), *color, *debug)
+			go SaveImage(rawImage, width, height, fmt.Sprintf("%s-%d.tiff", *name, i), *color, *debug, *resolution)
 		}
 	}
 }
