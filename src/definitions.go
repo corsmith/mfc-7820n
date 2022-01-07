@@ -3,6 +3,7 @@ package main
 type requests struct {
 	leaseRequest string
 	scanRequest  string
+	nextPageRequest  string
 }
 
 type modes struct {
@@ -40,7 +41,7 @@ var scanner constants = constants{
 	headerLen: 3,
 	A4height:  294,
 	mmInch:    25.4,
-	endPage:   0x82,
+	endPage:   0x81,
 	endScan:   0x80,
 	startGray: 0x40,
 }
@@ -48,4 +49,5 @@ var scanner constants = constants{
 var formats requests = requests{
 	leaseRequest: "\x1bI\nR=%d,%d\nM=%s\n\x80",
 	scanRequest:  "\x1bX\nR=%d,%d\nM=%s\nC=%s\nD=SIN\nB=50\nN=50\nA=0,0,%d,%d\n\x80",
+	nextPageRequest:  "\x1bX\x80",
 }

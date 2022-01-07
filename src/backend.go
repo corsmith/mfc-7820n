@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"image"
 	"github.com/corsmith/image/tiff"
@@ -32,8 +33,8 @@ func Scan(brotherIP string, brotherPort int, resolution int, color string, rawin
 		return removeHeaders(bytes), width, height
 	} else {
 		log.Println("Bypassing socket...")
-		width := 1648
-		height := 2287
+		width := 2480
+		height := 3228
 
 		bytes, err := os.ReadFile(rawinput)
 		HandleError(err)
@@ -68,8 +69,11 @@ func sendRequest(socket net.Conn, resolution int, _mode string) (int, int) {
 	adfStatus := 0
 
 	fmt.Sscanf(offer[2:], "%d,%d,%d,%d,%d,%d,%d", &dpiX, &dpiY, &adfStatus, &planeWidth, &width, &planeHeight, &height)
+	if height == 0 {
+		height = int(float32(dpiY) * 10.76) // US-LETTER
+	}
 
-	log.Println("Sending scan request dpiX, dpiY", dpiX, dpiY)
+	log.Println("Sending scan request dpiX, dpiY, width, height", dpiX, dpiY, width, height)
 
 	request = []byte(fmt.Sprintf(formats.scanRequest, dpiX, dpiY, mode, compression, width, height))
 
@@ -102,8 +106,11 @@ readPackets:
 			if bytes == 1 && packet[0] == scanner.endScan {
 				log.Println("Scan received...")
 				break readPackets
+			} else if bytes == 1 && packet[0] == scanner.endPage {
+				// send next page
+				log.Println("Requesting next page...")
+				sendPacket(socket, []byte(formats.nextPageRequest))
 			}
-
 		default:
 			HandleError(err)
 		}
@@ -173,7 +180,6 @@ func removeHeaders(data []byte) [][]byte {
 	pages := make([][]byte, 0)
 	page := make([]byte, 0)
 
-	currentPage := 1
 	i := 0
 
 headersLoop:
@@ -186,15 +192,13 @@ headersLoop:
 			log.Println("End Page...")
 			pages = append(pages, page)
 
-			if len(data) > i+1 && data[i+1] == scanner.endScan {
+			if len(data) > i+1 && data[i+1] == scanner.endScan { // XXX: double check if this is true in the pcaps
 				break headersLoop
 			}
 
 			page = make([]byte, 0)
 
-			currentPage++
-
-			i += scanner.headerLen - 2
+			i += 1
 			continue headersLoop
 		} else if data[i] == scanner.startGray {
 			payloadLen := binary.LittleEndian.Uint16(data[i+1 : i+3])
@@ -205,6 +209,8 @@ headersLoop:
 
 			i += chunkSize + scanner.headerLen
 		} else {
+			hd := hex.Dumper(os.Stdout)
+			hd.Write(data[i:])
 			// This is an error
 			log.Fatalln("Invalid header type.  Giving up...")
 			break headersLoop
