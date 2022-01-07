@@ -1,8 +1,8 @@
-# Brother MFC-7820N WiFi scanner protocol
+# Brother MFC-7820N network scanner protocol
 
 ## Reasons
 
-_Brother MFC-7820N already has a scanner driver you can download [here](https://support.brother.com/g/b/downloadtop.aspx?c=it&lang=it&prod=mfc7820n_all)_ **but that are prebuilt binary (x86/x64) and source code isn't public**. This is a problem if you want to use the scanner on ARM architecture, because if you don't have the source code of the driver you can't recompile it. Anyway this should work on every scanner that use `brscan2`, but I'm not sure.
+_Brother MFC-7820N already has a scanner driver you can download [here](https://support.brother.com/g/b/downloadtop.aspx?c=it&lang=it&prod=mfc7820n_all)_ **but that are prebuilt binary (x86/x64) and source code isn't public**. This is a problem if you want to use the scanner on ARM architecture or FreeBSD, because if you don't have the source code of the driver you can't recompile it. Anyway this should work on every scanner that use `brscan2`, but I'm not sure.
 
 ## Scanning protocol
 
@@ -42,8 +42,8 @@ sendPacket(socket, request)
 
 ##### COLOR MODES
 
-- **GRAY64**: gray scale image
-- **CGRAY**: color image
+- **GRAY64**: gray scale image ** NOT IMPLEMENTED **
+- **CGRAY**: color image ** NOT IMPLEMENTED **
 - **TEXT**: low resolution mode, 1 bps
 
 ##### RESOLUTIONS
@@ -108,13 +108,13 @@ Usage of ./mfc-7820n:
 
 ## To do
 
-- [ ] Implement multi page scan for ADF
 - [ ] Implement CGRAY decoding
 - [ ] Implement GRAY64 decoding
 
 ## Credits
 
 [Corey Smith](https://github.com/corsmith)
+
 [Andrea Maugeri](https://github.com/v0lp3)
 
 Partially thanks to [this](https://github.com/davidar/mfc7400c/)
