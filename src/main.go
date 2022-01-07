@@ -10,7 +10,7 @@ func main() {
 	const brotherPort int = 54921
 
 	brotherIP := flag.String("a", "192.168.0.157", "IP address of the Brother scanner")
-	color := flag.String("c", "CGRAY", "Color mode of the scan (CGRAY, TEXT)")
+	color := flag.String("c", "TEXT", "Color mode of the scan (CGRAY, TEXT)")
 	debug := flag.Bool("d", false, "Enable debug mode - save .rawbytes and .raw file")
 	rawinput := flag.String("i", "", "raw input file to parse instead of socket")
 	name := flag.String("n", "scan.tiff", "Name of the output file")

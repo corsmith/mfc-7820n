@@ -96,7 +96,7 @@ Usage of ./mfc-7820n:
   -a string
         IP address of the Brother scanner (default "192.168.0.157")
   -c string
-        Color mode of the scan (CGRAY, GRAY64, TEXT) (default "CGRAY")
+        Color mode of the scan (CGRAY, GRAY64, TEXT) (default "TEXT")
   -m    Enable scan of all pages from feeder
   -n string
         Name of the output file (default "scan.tiff")
