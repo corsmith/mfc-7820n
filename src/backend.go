@@ -113,6 +113,9 @@ readPackets:
 					log.Println("Requesting next page...")
 					i += 1
 					sendPacket(socket, []byte(formats.nextPageRequest))
+					if i >= len(scanBytes) {
+						continue readPackets
+					}
 				} else if scanBytes[i] == scanner.startGray {
 					if i + 2 >= len(scanBytes) {
 						continue readPackets
