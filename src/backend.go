@@ -86,6 +86,7 @@ func sendRequest(socket net.Conn, resolution int, _mode string) (int, int) {
 
 func getScanBytes(socket net.Conn) ([]byte, error) {
 	log.Println("Getting packets...")
+	i := 0
 
 	packet := make([]byte, 2048)
 	scanBytes := make([]byte, 0)
@@ -103,13 +104,31 @@ readPackets:
 
 		case nil:
 			scanBytes = append(scanBytes, packet[:bytes]...)
-			if bytes == 1 && packet[0] == scanner.endScan {
-				log.Println("Scan received...")
-				break readPackets
-			} else if bytes == 1 && packet[0] == scanner.endPage {
-				// send next page
-				log.Println("Requesting next page...")
-				sendPacket(socket, []byte(formats.nextPageRequest))
+			for {
+				if scanBytes[i] == scanner.endScan {
+					log.Println("Scan received...")
+					break readPackets
+				} else if scanBytes[i] == scanner.endPage {
+					// send next page
+					log.Println("Requesting next page...")
+					i += 1
+					sendPacket(socket, []byte(formats.nextPageRequest))
+				} else if scanBytes[i] == scanner.startGray {
+					if i + 2 >= len(scanBytes) {
+						continue readPackets
+					}
+					payloadLen := binary.LittleEndian.Uint16(scanBytes[i+1 : i+3])
+					chunkSize := int(payloadLen)
+					if i + chunkSize + scanner.headerLen >= len(scanBytes) {
+						continue readPackets
+					}
+					i += chunkSize + scanner.headerLen
+				} else {
+					hd := hex.Dumper(os.Stdout)
+					hd.Write(scanBytes[i:])
+					// This is an error
+					log.Fatalln("Invalid header type.  Giving up...")
+				}
 			}
 		default:
 			HandleError(err)
